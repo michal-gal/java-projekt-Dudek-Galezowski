@@ -10,6 +10,7 @@ import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfig
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import projekt.pk.edu.pl.bookstore.dto.auth.LoginRequest;
 import projekt.pk.edu.pl.bookstore.dto.auth.RegistrationRequest;
 import projekt.pk.edu.pl.bookstore.entity.User;
 import projekt.pk.edu.pl.bookstore.repository.UserRepository;
@@ -108,6 +109,48 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors.password").exists());
     }
 
+    @Test
+    void shouldLoginRegisteredUserAndReturnJwtToken() throws Exception {
+        String email = uniqueEmail();
+        RegistrationRequest registrationRequest = new RegistrationRequest("Jan", "Kowalski", email, "superhaslo");
+        LoginRequest loginRequest = new LoginRequest(email.toUpperCase(), "superhaslo");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(registrationRequest)))
+                .andExpect(status().isCreated());
+
+        createdEmails.add(email);
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isString())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").isNumber());
+    }
+
+    @Test
+    void shouldRejectLoginWithInvalidCredentials() throws Exception {
+        String email = uniqueEmail();
+        RegistrationRequest registrationRequest = new RegistrationRequest("Jan", "Kowalski", email, "superhaslo");
+        LoginRequest loginRequest = new LoginRequest(email, "zlehaslo");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(registrationRequest)))
+                .andExpect(status().isCreated());
+
+        createdEmails.add(email);
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(loginRequest)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid email or password"));
+    }
+
     private String uniqueEmail() {
         return "test-" + UUID.randomUUID() + "@example.com";
     }
@@ -121,5 +164,14 @@ class AuthControllerIntegrationTest {
                   "password": "%s"
                 }
                 """.formatted(request.firstName(), request.lastName(), request.email(), request.password());
+    }
+
+    private String toJson(LoginRequest request) {
+        return """
+                {
+                  "email": "%s",
+                  "password": "%s"
+                }
+                """.formatted(request.email(), request.password());
     }
 }
