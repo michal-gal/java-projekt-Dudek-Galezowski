@@ -4,10 +4,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import projekt.pk.edu.pl.bookstore.dto.auth.LoginRequest;
@@ -18,8 +20,11 @@ import projekt.pk.edu.pl.bookstore.repository.UserRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -151,6 +156,39 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
     }
 
+    @Test
+    void shouldReturnCurrentUserForValidJwtToken() throws Exception {
+        String email = uniqueEmail();
+        RegistrationRequest registrationRequest = new RegistrationRequest("Jan", "Kowalski", email.toUpperCase(), "superhaslo");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(registrationRequest)))
+                .andExpect(status().isCreated());
+
+        createdEmails.add(email);
+
+        String accessToken = loginAndExtractToken(email.toUpperCase(), "superhaslo");
+
+        mockMvc.perform(get("/api/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.firstName").value("Jan"))
+                .andExpect(jsonPath("$.lastName").value("Kowalski"))
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.role").value("READER"))
+                .andExpect(jsonPath("$.isActive").value(true))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.accessToken").doesNotExist());
+    }
+
+    @Test
+    void shouldRejectCurrentUserRequestWithoutToken() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private String uniqueEmail() {
         return "test-" + UUID.randomUUID() + "@example.com";
     }
@@ -173,5 +211,18 @@ class AuthControllerIntegrationTest {
                   "password": "%s"
                 }
                 """.formatted(request.email(), request.password());
+    }
+
+    private String loginAndExtractToken(String email, String password) throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(new LoginRequest(email, password))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Matcher matcher = Pattern.compile("\"accessToken\"\\s*:\\s*\"([^\"]+)\"")
+                .matcher(loginResult.getResponse().getContentAsString());
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
     }
 }
