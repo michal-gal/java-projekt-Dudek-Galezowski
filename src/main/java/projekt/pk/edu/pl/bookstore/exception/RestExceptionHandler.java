@@ -64,12 +64,12 @@ public class RestExceptionHandler {
                 .body(new ApiErrorResponse(exception.getMessage(), Map.of()));
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ApiErrorResponse> handleIllegalState(IllegalStateException exception) {
+    @ExceptionHandler(BusinessConflictException.class)
+    public ResponseEntity<ApiErrorResponse> handleBusinessConflict(BusinessConflictException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiErrorResponse(exception.getMessage(), Map.of()));
     }
-
+    
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

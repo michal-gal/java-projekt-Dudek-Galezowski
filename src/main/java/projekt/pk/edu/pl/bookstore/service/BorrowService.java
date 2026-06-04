@@ -10,6 +10,7 @@ import projekt.pk.edu.pl.bookstore.entity.BorrowHistory;
 import projekt.pk.edu.pl.bookstore.entity.BorrowStatus;
 import projekt.pk.edu.pl.bookstore.entity.Reservation;
 import projekt.pk.edu.pl.bookstore.entity.ReservationStatus;
+import projekt.pk.edu.pl.bookstore.exception.BusinessConflictException;
 import projekt.pk.edu.pl.bookstore.exception.BookUnavailableException;
 import projekt.pk.edu.pl.bookstore.exception.ResourceNotFoundException;
 import projekt.pk.edu.pl.bookstore.repository.BookRepository;
@@ -87,13 +88,13 @@ public class BorrowService {
 
         ensureBorrowOwner(borrowHistory, normalizedEmail);
         if (borrowHistory.getStatus() != BorrowStatus.BORROWED && borrowHistory.getStatus() != BorrowStatus.OVERDUE) {
-            throw new IllegalStateException("Nie można zwrócić wypożyczenia o statusie: " + borrowHistory.getStatus());
+            throw new BusinessConflictException("Nie można zwrócić wypożyczenia o statusie: " + borrowHistory.getStatus());
         }
 
         Book book = bookRepository.findByIdForUpdate(borrowHistory.getBook().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Nie znaleziono książki o ID: " + borrowHistory.getBook().getId()));
         if (book.getAvailableCopies() >= book.getTotalCopies()) {
-            throw new IllegalStateException("Nie można zwiększyć liczby dostępnych egzemplarzy ponad stan magazynowy.");
+            throw new BusinessConflictException("Nie można zwiększyć liczby dostępnych egzemplarzy ponad stan magazynowy.");
         }
 
         book.setAvailableCopies(book.getAvailableCopies() + 1);
@@ -118,11 +119,11 @@ public class BorrowService {
 
     private void ensureReservationCanBeBorrowed(Reservation reservation, LocalDateTime now) {
         if (reservation.getStatus() != ReservationStatus.ACTIVE) {
-            throw new IllegalStateException("Nie można zrealizować rezerwacji o statusie: " + reservation.getStatus());
+            throw new BusinessConflictException("Nie można zrealizować rezerwacji o statusie: " + reservation.getStatus());
         }
 
         if (!reservation.getExpiresAt().isAfter(now)) {
-            throw new IllegalStateException("Nie można zrealizować wygasłej rezerwacji.");
+            throw new BusinessConflictException("Nie można zrealizować wygasłej rezerwacji.");
         }
     }
 

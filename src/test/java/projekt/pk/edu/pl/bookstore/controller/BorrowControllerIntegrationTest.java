@@ -155,6 +155,43 @@ class BorrowControllerIntegrationTest {
     }
 
     @Test
+    void shouldReturnConflictForAlreadyFulfilledReservation() throws Exception {
+        String email = registerReader();
+        String accessToken = loginAndExtractToken(email, "superhaslo");
+        Book book = createBook("Continuous Delivery", 2, 2);
+        Long reservationId = createReservation(accessToken, book.getId());
+
+        borrowBook(accessToken, reservationId);
+
+        mockMvc.perform(post("/api/borrows")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toBorrowJson(reservationId)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Nie można zrealizować rezerwacji o statusie: FULFILLED"))
+                .andExpect(jsonPath("$.fieldErrors").isMap());
+    }
+
+    @Test
+    void shouldReturnConflictForAlreadyReturnedBorrow() throws Exception {
+        String email = registerReader();
+        String accessToken = loginAndExtractToken(email, "superhaslo");
+        Book book = createBook("Refactoring UI", 2, 2);
+        Long reservationId = createReservation(accessToken, book.getId());
+        Long borrowId = borrowBook(accessToken, reservationId);
+
+        mockMvc.perform(post("/api/borrows/%d/return".formatted(borrowId))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/borrows/%d/return".formatted(borrowId))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Nie można zwrócić wypożyczenia o statusie: RETURNED"))
+                .andExpect(jsonPath("$.fieldErrors").isMap());
+    }
+
+    @Test
     void shouldReturnCurrentUsersBorrowHistory() throws Exception {
         String email = registerReader();
         String accessToken = loginAndExtractToken(email, "superhaslo");
