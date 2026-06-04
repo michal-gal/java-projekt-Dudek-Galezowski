@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import projekt.pk.edu.pl.bookstore.dto.book.BookRequest;
 import projekt.pk.edu.pl.bookstore.dto.book.BookResponse;
 import projekt.pk.edu.pl.bookstore.service.BookService;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/books")
@@ -43,16 +44,19 @@ public class BookController {
         return ResponseEntity.ok(bookService.getBookById(id));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<BookResponse> createBook(@Valid @RequestBody BookRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(bookService.createBook(request));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<BookResponse> updateBook(@PathVariable Long id, @Valid @RequestBody BookRequest request) {
         return ResponseEntity.ok(bookService.updateBook(id, request));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
         bookService.deleteBook(id);
