@@ -32,6 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -151,6 +152,45 @@ class BorrowControllerIntegrationTest {
                         .content(toBorrowJson(reservationId)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Rezerwacja nie należy do bieżącego użytkownika."));
+    }
+
+    @Test
+    void shouldReturnCurrentUsersBorrowHistory() throws Exception {
+        String email = registerReader();
+        String accessToken = loginAndExtractToken(email, "superhaslo");
+        String secondEmail = registerReader();
+        String secondToken = loginAndExtractToken(secondEmail, "superhaslo");
+
+        Book returnedBook = createBook("Clean Architecture", 3, 3);
+        Book activeBook = createBook("Test Driven Development", 2, 2);
+        Book otherUsersBook = createBook("Working Effectively with Legacy Code", 1, 1);
+
+        Long returnedReservationId = createReservation(accessToken, returnedBook.getId());
+        Long returnedBorrowId = borrowBook(accessToken, returnedReservationId);
+        mockMvc.perform(post("/api/borrows/%d/return".formatted(returnedBorrowId))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isOk());
+
+        Long activeReservationId = createReservation(accessToken, activeBook.getId());
+        borrowBook(accessToken, activeReservationId);
+
+        Long otherReservationId = createReservation(secondToken, otherUsersBook.getId());
+        borrowBook(secondToken, otherReservationId);
+
+        mockMvc.perform(get("/api/borrows/history")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].bookTitle").value("Test Driven Development"))
+                .andExpect(jsonPath("$[0].status").value("BORROWED"))
+                .andExpect(jsonPath("$[0].borrowedAt").isString())
+                .andExpect(jsonPath("$[0].dueAt").isString())
+                .andExpect(jsonPath("$[0].returnedAt").isEmpty())
+                .andExpect(jsonPath("$[1].bookTitle").value("Clean Architecture"))
+                .andExpect(jsonPath("$[1].status").value("RETURNED"))
+                .andExpect(jsonPath("$[1].borrowedAt").isString())
+                .andExpect(jsonPath("$[1].dueAt").isString())
+                .andExpect(jsonPath("$[1].returnedAt").isString());
     }
 
     private String registerReader() throws Exception {

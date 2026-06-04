@@ -17,6 +17,7 @@ import projekt.pk.edu.pl.bookstore.repository.BorrowHistoryRepository;
 import projekt.pk.edu.pl.bookstore.repository.ReservationRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 
 @Service
@@ -104,6 +105,15 @@ public class BorrowService {
 
         BorrowHistory savedBorrowHistory = borrowHistoryRepository.saveAndFlush(borrowHistory);
         return mapToResponse(savedBorrowHistory);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BorrowResponse> getCurrentUserHistory(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        return borrowHistoryRepository.findAllByUserEmailOrderByBorrowedAtDesc(normalizedEmail)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private void ensureReservationCanBeBorrowed(Reservation reservation, LocalDateTime now) {
