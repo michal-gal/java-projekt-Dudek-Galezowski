@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import projekt.pk.edu.pl.bookstore.dto.book.BookRequest;
 import projekt.pk.edu.pl.bookstore.dto.book.BookResponse;
 import projekt.pk.edu.pl.bookstore.entity.Book;
+import projekt.pk.edu.pl.bookstore.exception.BusinessConflictException;
 import projekt.pk.edu.pl.bookstore.exception.ResourceNotFoundException;
 import projekt.pk.edu.pl.bookstore.repository.BookRepository;
 
@@ -77,7 +78,7 @@ public class BookService {
                 .orElseThrow(() -> new ResourceNotFoundException("Nie znaleziono książki o ID: " + id));
 
         if (book.getAvailableCopies() < book.getTotalCopies()) {
-            throw new IllegalStateException("Nie można usunąć książki – egzemplarze są w obiegu!");
+            throw new BusinessConflictException("Nie można usunąć książki – egzemplarze są w obiegu!");
         }
         bookRepository.delete(book);
     }
