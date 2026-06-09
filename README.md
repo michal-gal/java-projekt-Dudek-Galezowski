@@ -44,92 +44,77 @@ Interaktywna dokumentacja Swagger UI dostępna jest pod adresem:
 http://localhost:8080/swagger-ui/index.html
 
 #### Zrzuty ekranu
-[Swagger](Readme_Resources/endpoint1.png)
-[Swagger](Readme_Resources/endpoint2.png)
+* [Swagger- endpoint1](Readme_Resources/endpoint1.png)
+* [Swagger - endpoint2](Readme_Resources/endpoint2.png)
 
 ## ERD bazy danych
 Poniższy diagram przedstawia dokładną strukturę tabel w bazie PostgreSQL.
 
 ```mermaid
-classDiagram
-direction BT
+erDiagram
+    ROLES ||--o{ USERS : assigns
+    USERS ||--o{ RESERVATIONS : creates
+    BOOKS ||--o{ RESERVATIONS : reserves
+    USERS ||--o{ BORROW_HISTORY : borrows
+    BOOKS ||--o{ BORROW_HISTORY : lends
+    RESERVATIONS ||--o{ BORROW_HISTORY : fulfills
 
-class books {
-   varchar(20) isbn
-   varchar(255) title
-   varchar(255) author
-   varchar(255) publisher
-   integer publication_year
-   integer total_copies
-   integer available_copies
-   timestamp created_at
-   timestamp updated_at
-   bigint id
-}
+    ROLES {
+        BIGINT id PK
+        VARCHAR name UK
+        VARCHAR description
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
 
-class borrow_history {
-   bigint user_id
-   bigint book_id
-   bigint reservation_id
-   varchar(20) status
-   timestamp borrowed_at
-   timestamp due_at
-   timestamp returned_at
-   timestamp created_at
-   timestamp updated_at
-   bigint id
-}
+    USERS {
+        BIGINT id PK
+        BIGINT role_id FK
+        VARCHAR first_name
+        VARCHAR last_name
+        VARCHAR email UK
+        VARCHAR password_hash
+        BOOLEAN is_active
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
 
-class flyway_schema_history {
-   varchar(50) version
-   varchar(200) description
-   varchar(20) type
-   varchar(1000) script
-   integer checksum
-   varchar(100) installed_by
-   timestamp installed_on
-   integer execution_time
-   boolean success
-   integer installed_rank
-}
+    BOOKS {
+        BIGINT id PK
+        VARCHAR isbn UK
+        VARCHAR title
+        VARCHAR author
+        VARCHAR publisher
+        INTEGER publication_year
+        INTEGER total_copies
+        INTEGER available_copies
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
 
-class reservations {
-   bigint user_id
-   bigint book_id
-   varchar(20) status
-   timestamp reserved_at
-   timestamp expires_at
-   timestamp fulfilled_at
-   timestamp cancelled_at
-   timestamp created_at
-   timestamp updated_at
-   bigint id
-}
+    RESERVATIONS {
+        BIGINT id PK
+        BIGINT user_id FK
+        BIGINT book_id FK
+        VARCHAR status
+        TIMESTAMP reserved_at
+        TIMESTAMP expires_at
+        TIMESTAMP fulfilled_at
+        TIMESTAMP cancelled_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
 
-class roles {
-   varchar(50) name
-   varchar(255) description
-   timestamp created_at
-   timestamp updated_at
-   bigint id
-}
-
-class users {
-   bigint role_id
-   varchar(100) first_name
-   varchar(100) last_name
-   varchar(255) email
-   varchar(255) password_hash
-   boolean is_active
-   timestamp created_at
-   timestamp updated_at
-   bigint id
-}
-
-borrow_history --> books : book_id:id
-borrow_history --> reservations : reservation_id:id
-borrow_history --> users : user_id:id
-reservations --> books : book_id:id
-reservations --> users : user_id:id
-users --> roles : role_id:id
+    BORROW_HISTORY {
+        BIGINT id PK
+        BIGINT user_id FK
+        BIGINT book_id FK
+        BIGINT reservation_id FK
+        VARCHAR status
+        TIMESTAMP borrowed_at
+        TIMESTAMP due_at
+        TIMESTAMP returned_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
 ```
