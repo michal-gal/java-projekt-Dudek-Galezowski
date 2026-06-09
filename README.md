@@ -7,7 +7,7 @@ System posiada wbudowane mechanizmy bezpieczeństwa oparte na tokenach JWT oraz 
 ## Realizacja wymogów formalnych projektu
 Projekt został zrealizowany zgodnie z filarami programowania obiektowego oraz zasadami SOLID.
 
-* * Polimorfizm: Zaimplementowany poprzez stworzenie własnej hierarchii wyjątków biznesowych (m.in. `ResourceNotFoundException`) dziedziczących po `RuntimeException`.
+* Polimorfizm: Zaimplementowany poprzez stworzenie własnej hierarchii wyjątków biznesowych (m.in. `ResourceNotFoundException`) dziedziczących po `RuntimeException`.
 * Wzorce projektowe: Builder (budowanie tokenów JWT w konfiguracji Spring Security), Repository (wzorzec dostępu do danych w Spring Data JPA), DTO (Data Transfer Object dla modeli zapytania), Dependency Injection (wstrzykiwanie przez konstruktory), oraz Filter/Chain of Responsibility (wykorzystane w JwtAuthenticationFilter przy filtrowaniu zapytań HTTP).
 * RBAC (Role-Based Access Control): Pełny podział ról w systemie (ADMIN / READER) z zabezpieczeniem konkretnych endpointów.
 * Testowanie: Zaimplementowano testy integracyjne przy użyciu narzędzi JUnit 5 oraz MockMvc. Do analizy pokrycia kodu skonfigurowano w środowisku Maven narzędzie JaCoCo.
@@ -27,10 +27,14 @@ Projekt został zrealizowany zgodnie z filarami programowania obiektowego oraz z
 Projekt posiada dwa kontenery, bazy danych 'Postgres' oraz aplikacji 'spring_backend' do uruchamiania w kontenerach Docker.
 
 ### Uruchomienie
+```bash
 
-docker compose up postgres -d (potrzebny aby testy podczas budowania przeszły)
+#(Kontener bazy potrzebny aby testy podczas budowania przeszły)
+docker compose up postgres -d
 ./mvnw clean package
 docker compose up -d
+
+```
 
 Aplikacja będzie nasłuchiwać pod adresem: http://localhost:8080.
 
@@ -122,9 +126,10 @@ class users {
    bigint id
 }
 
-borrow_history  -->  books : book_id:id
-borrow_history  -->  reservations : reservation_id:id
-borrow_history  -->  users : user_id:id
-reservations  -->  books : book_id:id
-reservations  -->  users : user_id:id
-users  -->  roles : role_id:id
+borrow_history --> books : book_id:id
+borrow_history --> reservations : reservation_id:id
+borrow_history --> users : user_id:id
+reservations --> books : book_id:id
+reservations --> users : user_id:id
+users --> roles : role_id:id
+```
