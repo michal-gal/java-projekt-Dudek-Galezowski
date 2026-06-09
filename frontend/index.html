@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Księgarnia - System Zarządzania</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>📚 Księgarnia API</h1>
+        <div id="user-info" class="hidden">
+            <span id="user-name"></span> (<span id="user-role"></span>)
+            <button onclick="logout()">Wyloguj</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Sekcja Autoryzacji -->
+        <section id="auth-view">
+            <div class="card">
+                <div id="login-form">
+                    <h2>Logowanie</h2>
+                    <input type="email" id="login-email" placeholder="Email" required>
+                    <input type="password" id="login-password" placeholder="Hasło" required>
+                    <button onclick="login()">Zaloguj się</button>
+                    <p>Nie masz konta? <a href="#" onclick="toggleAuthForms()">Zarejestruj się</a></p>
+                </div>
+                <div id="register-form" class="hidden">
+                    <h2>Rejestracja</h2>
+                    <input type="text" id="reg-firstname" placeholder="Imię" required>
+                    <input type="text" id="reg-lastname" placeholder="Nazwisko" required>
+                    <input type="email" id="reg-email" placeholder="Email" required>
+                    <input type="password" id="reg-password" placeholder="Hasło" required>
+                    <button onclick="register()">Zarejestruj się</button>
+                    <p>Masz już konto? <a href="#" onclick="toggleAuthForms()">Zaloguj się</a></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sekcja Dashboard (widoczna po zalogowaniu) -->
+        <section id="dashboard-view" class="hidden">
+            <nav>
+                <button onclick="showSection('books-section')">Katalog Książek</button>
+                <button id="nav-history" class="hidden" onclick="showSection('history-section')">Moje Wypożyczenia</button>
+                <button id="nav-admin" class="hidden" onclick="showSection('admin-section')">Panel Admina</button>
+            </nav>
+
+            <div id="books-section" class="content-section">
+                <!-- Tu trafi lista książek -->
+                <h2>Katalog Książek</h2>
+                <div id="books-list"></div>
+            </div>
+
+            <div id="history-section" class="content-section hidden">
+                <h2>Twoje Wypożyczenia</h2>
+                <div id="history-list"></div>
+            </div>
+
+            <div id="admin-section" class="content-section hidden">
+                <h2>Zarządzanie (Admin)</h2>
+                <div id="admin-actions"></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
