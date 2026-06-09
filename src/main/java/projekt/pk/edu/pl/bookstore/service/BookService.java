@@ -1,5 +1,6 @@
 package projekt.pk.edu.pl.bookstore.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import projekt.pk.edu.pl.bookstore.repository.BookRepository;
 import java.time.LocalDateTime;
 
 @Service
+@Slf4j
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -34,13 +36,16 @@ public class BookService {
 
     @Transactional
     public BookResponse createBook(BookRequest request) {
+        log.info("Rozpoczęto proces dodawania nowej książki z ISBN: {}", request.getIsbn());
+
         if (bookRepository.findByIsbn(request.getIsbn()).isPresent()) {
+            log.warn("Nieudana próba dodania książki - ISBN {} już istnieje", request.getIsbn());
             throw new IllegalArgumentException("Książka o podanym ISBN już istnieje w bazie.");
         }
 
         Book book = new Book();
         updateBookFields(book, request);
-        book.setAvailableCopies(request.getTotalCopies()); // nowa książka, wszystkie dostępne
+        book.setAvailableCopies(request.getTotalCopies());
         book.setCreatedAt(LocalDateTime.now());
         book.setUpdatedAt(LocalDateTime.now());
 
@@ -74,13 +79,17 @@ public class BookService {
 
     @Transactional
     public void deleteBook(Long id) {
+        log.info("Otrzymano żądanie usunięcia książki o ID: {}", id);
+
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Nie znaleziono książki o ID: " + id));
 
         if (book.getAvailableCopies() < book.getTotalCopies()) {
+            log.error("Zablokowano usunięcie książki ID: {} - egzemplarze są aktualnie w obiegu", id);
             throw new BusinessConflictException("Nie można usunąć książki – egzemplarze są w obiegu!");
         }
         bookRepository.delete(book);
+        log.info("Książka o ID: {} została pomyślnie usunięta", id);
     }
 
     private void updateBookFields(Book book, BookRequest request) {
