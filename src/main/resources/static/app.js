@@ -60,16 +60,19 @@ async function register() {
 
 async function afterLogin() {
     const me = await apiFetch('/auth/me', { headers: authHeaders() });
-    const roles = me.roles || [];
+    const role = me.role || '';
 
     document.getElementById('user-name').textContent = `${me.firstName} ${me.lastName}`;
-    document.getElementById('user-role').textContent = roles.join(', ');
+    document.getElementById('user-role').textContent = role;
     document.getElementById('user-info').classList.remove('hidden');
 
-    const isAdmin  = roles.includes('ROLE_ADMIN');
-    const isReader = roles.includes('ROLE_READER');
+    const isAdmin      = role === 'ADMIN';
+    const isReader     = role === 'READER';
+    const isLibrarian  = role === 'LIBRARIAN';
 
+    document.getElementById('nav-reservations').classList.toggle('hidden', !isReader);
     document.getElementById('nav-history').classList.toggle('hidden', !isReader);
+    document.getElementById('nav-librarian').classList.toggle('hidden', !isLibrarian);
     document.getElementById('nav-admin').classList.toggle('hidden', !isAdmin);
 
     show('dashboard-view');
@@ -235,6 +238,129 @@ async function reserveBook(bookId) {
     }
 }
 
+// ── Reservations ───────────────────────────────────────────────
+async function loadReservations() {
+    const data = await apiFetch('/reservations/my', { headers: authHeaders() });
+    const container = document.getElementById('reservations-list');
+
+    if (!data.length) {
+        container.innerHTML = '<p>Brak rezerwacji.</p>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table>
+            <thead><tr>
+                <th>Książka</th><th>Status</th>
+                <th>Zarezerwowano</th><th>Wygasa</th><th>Akcje</th>
+            </tr></thead>
+            <tbody>
+            ${data.map(r => `
+                <tr>
+                    <td>${r.bookTitle}</td>
+                    <td class="status-${r.status.toLowerCase()}">${statusLabel(r.status)}</td>
+                    <td>${fmt(r.reservedAt)}</td>
+                    <td>${fmt(r.expiresAt)}</td>
+                    <td>${r.status === 'ACTIVE' ? `
+                        <button class="btn-danger" onclick="cancelReservation(${r.id})">Anuluj</button>
+                    ` : ''}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+}
+
+async function cancelReservation(id) {
+    if (!confirm('Na pewno anulować tę rezerwację?')) return;
+    try {
+        await apiFetch(`/reservations/${id}`, { method: 'DELETE', headers: authHeaders() });
+        loadReservations();
+    } catch (err) {
+        alert('Błąd: ' + (err.message || JSON.stringify(err)));
+    }
+}
+
+function statusLabel(s) {
+    return {
+        ACTIVE: 'Aktywna', FULFILLED: 'Zrealizowana', CANCELLED: 'Anulowana', EXPIRED: 'Wygasła',
+        BORROWED: 'Wypożyczona', RETURNED: 'Zwrócona', OVERDUE: 'Po terminie'
+    }[s] || s;
+}
+
+// ── Librarian panel ────────────────────────────────────────────
+async function loadLibrarianPanel() {
+    await Promise.all([loadLibrarianReservations(), loadLibrarianBorrows()]);
+}
+
+async function loadLibrarianReservations() {
+    const data = await apiFetch('/reservations/active', { headers: authHeaders() });
+    const container = document.getElementById('librarian-reservations-list');
+
+    if (!data.length) {
+        container.innerHTML = '<p>Brak aktywnych rezerwacji.</p>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table>
+            <thead><tr>
+                <th>Czytelnik</th><th>Książka</th>
+                <th>Zarezerwowano</th><th>Wygasa</th><th>Akcje</th>
+            </tr></thead>
+            <tbody>
+            ${data.map(r => `
+                <tr>
+                    <td>${r.userEmail}</td>
+                    <td>${r.bookTitle}</td>
+                    <td>${fmt(r.reservedAt)}</td>
+                    <td>${fmt(r.expiresAt)}</td>
+                    <td><button onclick="issueBook(${r.id})">Wydaj książkę</button></td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+}
+
+async function loadLibrarianBorrows() {
+    const data = await apiFetch('/borrows/active', { headers: authHeaders() });
+    const container = document.getElementById('librarian-borrows-list');
+
+    if (!data.length) {
+        container.innerHTML = '<p>Brak aktywnych wypożyczeń.</p>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table>
+            <thead><tr>
+                <th>Czytelnik</th><th>Książka</th>
+                <th>Wypożyczono</th><th>Termin zwrotu</th>
+            </tr></thead>
+            <tbody>
+            ${data.map(b => `
+                <tr>
+                    <td>${b.userEmail}</td>
+                    <td>${b.bookTitle}</td>
+                    <td>${fmt(b.borrowedAt)}</td>
+                    <td>${fmt(b.dueAt)}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
+}
+
+async function issueBook(reservationId) {
+    if (!confirm('Wydać książkę dla tej rezerwacji?')) return;
+    try {
+        await apiFetch('/borrows', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ reservationId })
+        });
+        alert('Książka wydana. Wypożyczenie zarejestrowane na 14 dni.');
+        loadLibrarianPanel();
+    } catch (err) {
+        alert('Błąd: ' + (err.message || JSON.stringify(err)));
+    }
+}
+
 // ── Borrow history ─────────────────────────────────────────────
 async function loadHistory() {
     const data = await apiFetch('/borrows/history', { headers: authHeaders() });
@@ -256,7 +382,7 @@ async function loadHistory() {
                 <tr>
                     <td>${b.bookTitle}</td>
                     <td>${fmt(b.borrowedAt)}</td>
-                    <td>${fmt(b.dueDate)}</td>
+                    <td>${fmt(b.dueAt)}</td>
                     <td class="status-${b.status.toLowerCase()}">${b.status}</td>
                     <td>${b.status === 'BORROWED'
                         ? `<button onclick="returnBook(${b.id})">Zwróć</button>`
@@ -286,7 +412,9 @@ function closeModal() { document.getElementById('edit-modal')?.remove(); }
 function showSection(id) {
     document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
+    if (id === 'reservations-section') loadReservations();
     if (id === 'history-section') loadHistory();
+    if (id === 'librarian-section') loadLibrarianPanel();
 }
 
 function toggleAuthForms() {

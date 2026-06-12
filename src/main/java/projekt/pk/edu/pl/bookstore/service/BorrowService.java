@@ -41,14 +41,12 @@ public class BorrowService {
     }
 
     @Transactional
-    public BorrowResponse borrowBook(BorrowRequest request, String email) {
-        String normalizedEmail = normalizeEmail(email);
+    public BorrowResponse borrowBook(BorrowRequest request) {
         LocalDateTime now = LocalDateTime.now();
 
         Reservation reservation = reservationRepository.findByIdForUpdate(request.reservationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Nie znaleziono rezerwacji o ID: " + request.reservationId()));
 
-        ensureReservationOwner(reservation, normalizedEmail);
         ensureReservationCanBeBorrowed(reservation, now);
 
         Book book = bookRepository.findByIdForUpdate(reservation.getBook().getId())
@@ -117,6 +115,14 @@ public class BorrowService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<BorrowResponse> getAllActiveBorrows() {
+        return borrowHistoryRepository.findAllByStatus(BorrowStatus.BORROWED)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     private void ensureReservationCanBeBorrowed(Reservation reservation, LocalDateTime now) {
         if (reservation.getStatus() != ReservationStatus.ACTIVE) {
             throw new BusinessConflictException("Nie można zrealizować rezerwacji o statusie: " + reservation.getStatus());
@@ -124,12 +130,6 @@ public class BorrowService {
 
         if (!reservation.getExpiresAt().isAfter(now)) {
             throw new BusinessConflictException("Nie można zrealizować wygasłej rezerwacji.");
-        }
-    }
-
-    private void ensureReservationOwner(Reservation reservation, String normalizedEmail) {
-        if (!reservation.getUser().getEmail().equalsIgnoreCase(normalizedEmail)) {
-            throw new AccessDeniedException("Rezerwacja nie należy do bieżącego użytkownika.");
         }
     }
 
@@ -143,6 +143,7 @@ public class BorrowService {
         return new BorrowResponse(
                 borrowHistory.getId(),
                 borrowHistory.getUser().getId(),
+                borrowHistory.getUser().getEmail(),
                 borrowHistory.getBook().getId(),
                 borrowHistory.getBook().getTitle(),
                 borrowHistory.getReservation() != null ? borrowHistory.getReservation().getId() : null,

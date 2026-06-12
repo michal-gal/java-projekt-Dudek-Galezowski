@@ -42,7 +42,9 @@
         <section id="dashboard-view" class="hidden">
             <nav>
                 <button onclick="showSection('books-section')">Katalog Książek</button>
+                <button id="nav-reservations" class="hidden" onclick="showSection('reservations-section')">Moje Rezerwacje</button>
                 <button id="nav-history" class="hidden" onclick="showSection('history-section')">Moje Wypożyczenia</button>
+                <button id="nav-librarian" class="hidden" onclick="showSection('librarian-section')">Panel Bibliotekarza</button>
                 <button id="nav-admin" class="hidden" onclick="showSection('admin-section')">Panel Admina</button>
             </nav>
 
@@ -52,9 +54,22 @@
                 <div id="books-list"></div>
             </div>
 
+            <div id="reservations-section" class="content-section hidden">
+                <h2>Moje Rezerwacje</h2>
+                <div id="reservations-list"></div>
+            </div>
+
             <div id="history-section" class="content-section hidden">
                 <h2>Twoje Wypożyczenia</h2>
                 <div id="history-list"></div>
+            </div>
+
+            <div id="librarian-section" class="content-section hidden">
+                <h2>Panel Bibliotekarza</h2>
+                <h3>Aktywne rezerwacje do wydania</h3>
+                <div id="librarian-reservations-list"></div>
+                <h3>Aktualnie wypożyczone</h3>
+                <div id="librarian-borrows-list"></div>
             </div>
 
             <div id="admin-section" class="content-section hidden">

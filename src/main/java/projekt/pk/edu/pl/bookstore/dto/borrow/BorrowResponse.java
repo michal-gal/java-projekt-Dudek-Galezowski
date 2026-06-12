@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public record BorrowResponse(
         Long id,
         Long userId,
+        String userEmail,
         Long bookId,
         String bookTitle,
         Long reservationId,

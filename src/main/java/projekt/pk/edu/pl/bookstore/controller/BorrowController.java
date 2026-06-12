@@ -37,17 +37,17 @@ public class BorrowController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('READER')")
+    @PreAuthorize("hasRole('LIBRARIAN')")
     @Operation(
-            summary = "Realizacja wypożyczenia",
-            description = "Tworzy wpis wypożyczenia na podstawie aktywnej rezerwacji i zmniejsza liczbę dostępnych egzemplarzy.",
+            summary = "Realizacja wypożyczenia przez bibliotekarza",
+            description = "Bibliotekarz wydaje książkę na podstawie aktywnej rezerwacji czytelnika.",
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Wypożyczenie zostało utworzone."),
             @ApiResponse(responseCode = "400", description = "Nieprawidłowe dane żądania.", content = @Content(schema = @Schema(implementation = projekt.pk.edu.pl.bookstore.dto.auth.ApiErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Brak lub nieprawidłowy token.", content = @Content(schema = @Schema(implementation = projekt.pk.edu.pl.bookstore.dto.auth.ApiErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Rezerwacja nie należy do użytkownika.", content = @Content(schema = @Schema(implementation = projekt.pk.edu.pl.bookstore.dto.auth.ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Brak uprawnień bibliotekarza.", content = @Content(schema = @Schema(implementation = projekt.pk.edu.pl.bookstore.dto.auth.ApiErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Nie znaleziono rezerwacji lub książki.", content = @Content(schema = @Schema(implementation = projekt.pk.edu.pl.bookstore.dto.auth.ApiErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "Konflikt biznesowy wypożyczenia.", content = @Content(schema = @Schema(implementation = projekt.pk.edu.pl.bookstore.dto.auth.ApiErrorResponse.class)))
     })
@@ -64,11 +64,26 @@ public class BorrowController {
             )
     )
     public ResponseEntity<BorrowResponse> borrowBook(
-            @Valid @RequestBody BorrowRequest request,
-            Authentication authentication
+            @Valid @RequestBody BorrowRequest request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(borrowService.borrowBook(request, authentication.getName()));
+                .body(borrowService.borrowBook(request));
+    }
+
+    @GetMapping("/active")
+    @PreAuthorize("hasRole('LIBRARIAN')")
+    @Operation(
+            summary = "Aktywne wypożyczenia",
+            description = "Zwraca listę wszystkich aktualnie wypożyczonych książek (status BORROWED).",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lista aktywnych wypożyczeń."),
+            @ApiResponse(responseCode = "401", description = "Brak lub nieprawidłowy token.", content = @Content(schema = @Schema(implementation = projekt.pk.edu.pl.bookstore.dto.auth.ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Brak uprawnień bibliotekarza.", content = @Content(schema = @Schema(implementation = projekt.pk.edu.pl.bookstore.dto.auth.ApiErrorResponse.class)))
+    })
+    public ResponseEntity<List<BorrowResponse>> getActiveBorrows() {
+        return ResponseEntity.ok(borrowService.getAllActiveBorrows());
     }
 
     @PostMapping("/{borrowId}/return")

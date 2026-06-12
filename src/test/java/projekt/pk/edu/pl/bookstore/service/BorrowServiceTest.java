@@ -6,7 +6,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.access.AccessDeniedException;
 import projekt.pk.edu.pl.bookstore.dto.borrow.BorrowRequest;
 import projekt.pk.edu.pl.bookstore.dto.borrow.BorrowResponse;
 import projekt.pk.edu.pl.bookstore.entity.Book;
@@ -63,7 +62,7 @@ class BorrowServiceTest {
                     return history;
                 });
 
-        BorrowResponse response = borrowService.borrowBook(new BorrowRequest(8L), " READER@example.com ");
+        BorrowResponse response = borrowService.borrowBook(new BorrowRequest(8L));
 
         ArgumentCaptor<BorrowHistory> captor = ArgumentCaptor.forClass(BorrowHistory.class);
         verify(borrowHistoryRepository).saveAndFlush(captor.capture());
@@ -82,19 +81,6 @@ class BorrowServiceTest {
     }
 
     @Test
-    void shouldRejectBorrowingAnotherUsersReservation() {
-        User owner = user(4L, "owner@example.com");
-        Book book = book(9L, "Effective Java", 2, 3);
-        Reservation reservation = reservation(8L, owner, book, ReservationStatus.ACTIVE, LocalDateTime.now().plusDays(1));
-
-        when(reservationRepository.findByIdForUpdate(8L)).thenReturn(Optional.of(reservation));
-
-        assertThatThrownBy(() -> borrowService.borrowBook(new BorrowRequest(8L), "other@example.com"))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Rezerwacja nie należy do bieżącego użytkownika.");
-    }
-
-    @Test
     void shouldRejectExpiredReservation() {
         User user = user(4L, "reader@example.com");
         Book book = book(9L, "Effective Java", 2, 3);
@@ -102,7 +88,7 @@ class BorrowServiceTest {
 
         when(reservationRepository.findByIdForUpdate(8L)).thenReturn(Optional.of(reservation));
 
-        assertThatThrownBy(() -> borrowService.borrowBook(new BorrowRequest(8L), "reader@example.com"))
+        assertThatThrownBy(() -> borrowService.borrowBook(new BorrowRequest(8L)))
                 .isInstanceOf(BusinessConflictException.class)
                 .hasMessage("Nie można zrealizować wygasłej rezerwacji.");
     }
@@ -116,7 +102,7 @@ class BorrowServiceTest {
         when(reservationRepository.findByIdForUpdate(8L)).thenReturn(Optional.of(reservation));
         when(bookRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(book));
 
-        assertThatThrownBy(() -> borrowService.borrowBook(new BorrowRequest(8L), "reader@example.com"))
+        assertThatThrownBy(() -> borrowService.borrowBook(new BorrowRequest(8L)))
                 .isInstanceOf(BookUnavailableException.class)
                 .hasMessage("Brak dostępnych egzemplarzy książki o ID: 9");
     }
