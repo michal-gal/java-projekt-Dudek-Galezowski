@@ -19,8 +19,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     Optional<Book> findByIdForUpdate(@Param("id") Long id);
 
     @Query("SELECT b FROM Book b WHERE " +
-            "(:query IS NULL OR LOWER(b.title) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-            "LOWER(b.author) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-            "LOWER(b.isbn) LIKE LOWER(CONCAT('%', :query, '%')))")
+            "(COALESCE(:query, '') = '' OR LOWER(b.title) LIKE LOWER(CONCAT('%', COALESCE(:query, ''), '%')) OR " +
+            "LOWER(b.author) LIKE LOWER(CONCAT('%', COALESCE(:query, ''), '%')) OR " +
+            "LOWER(b.isbn) LIKE LOWER(CONCAT('%', COALESCE(:query, ''), '%')))")
     Page<Book> searchBooks(@Param("query") String query, Pageable pageable);
 }
