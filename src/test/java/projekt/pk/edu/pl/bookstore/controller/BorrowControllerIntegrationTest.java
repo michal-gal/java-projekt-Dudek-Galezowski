@@ -19,9 +19,12 @@ import projekt.pk.edu.pl.bookstore.entity.BorrowHistory;
 import projekt.pk.edu.pl.bookstore.entity.BorrowStatus;
 import projekt.pk.edu.pl.bookstore.entity.Reservation;
 import projekt.pk.edu.pl.bookstore.entity.ReservationStatus;
+import projekt.pk.edu.pl.bookstore.entity.Role;
+import projekt.pk.edu.pl.bookstore.entity.User;
 import projekt.pk.edu.pl.bookstore.repository.BookRepository;
 import projekt.pk.edu.pl.bookstore.repository.BorrowHistoryRepository;
 import projekt.pk.edu.pl.bookstore.repository.ReservationRepository;
+import projekt.pk.edu.pl.bookstore.repository.RoleRepository;
 import projekt.pk.edu.pl.bookstore.repository.UserRepository;
 
 import java.time.LocalDateTime;
@@ -42,6 +45,9 @@ class BorrowControllerIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
 
     @Autowired
     private BookRepository bookRepository;
@@ -85,13 +91,14 @@ class BorrowControllerIntegrationTest {
 
     @Test
     void shouldBorrowReservedBookAndUpdateAvailability() throws Exception {
-        String email = registerReader();
-        String accessToken = loginAndExtractToken(email, "superhaslo");
+        String readerEmail = registerReader();
+        String readerToken = loginAndExtractToken(readerEmail, "superhaslo");
+        String librarianToken = loginAndExtractToken(registerLibrarian(), "superhaslo");
         Book book = createBook("Effective Java", 3, 2);
-        Long reservationId = createReservation(accessToken, book.getId());
+        Long reservationId = createReservation(readerToken, book.getId());
 
         mockMvc.perform(post("/api/borrows")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + librarianToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toBorrowJson(reservationId)))
                 .andExpect(status().isCreated())
@@ -116,14 +123,15 @@ class BorrowControllerIntegrationTest {
 
     @Test
     void shouldReturnBorrowedBookAndRestoreAvailability() throws Exception {
-        String email = registerReader();
-        String accessToken = loginAndExtractToken(email, "superhaslo");
+        String readerEmail = registerReader();
+        String readerToken = loginAndExtractToken(readerEmail, "superhaslo");
+        String librarianToken = loginAndExtractToken(registerLibrarian(), "superhaslo");
         Book book = createBook("Spring in Action", 2, 2);
-        Long reservationId = createReservation(accessToken, book.getId());
-        Long borrowId = borrowBook(accessToken, reservationId);
+        Long reservationId = createReservation(readerToken, book.getId());
+        Long borrowId = borrowBook(librarianToken, reservationId);
 
         mockMvc.perform(post("/api/borrows/%d/return".formatted(borrowId))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + readerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(borrowId))
                 .andExpect(jsonPath("$.status").value("RETURNED"))
@@ -138,33 +146,31 @@ class BorrowControllerIntegrationTest {
     }
 
     @Test
-    void shouldRejectBorrowingAnotherUsersReservation() throws Exception {
-        String ownerEmail = registerReader();
-        String ownerToken = loginAndExtractToken(ownerEmail, "superhaslo");
-        String secondEmail = registerReader();
-        String secondToken = loginAndExtractToken(secondEmail, "superhaslo");
+    void shouldRejectBorrowingWhenCalledByReader() throws Exception {
+        String readerEmail = registerReader();
+        String readerToken = loginAndExtractToken(readerEmail, "superhaslo");
         Book book = createBook("Patterns of Enterprise Application Architecture", 1, 1);
-        Long reservationId = createReservation(ownerToken, book.getId());
+        Long reservationId = createReservation(readerToken, book.getId());
 
         mockMvc.perform(post("/api/borrows")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + secondToken)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + readerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toBorrowJson(reservationId)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message").value("Rezerwacja nie należy do bieżącego użytkownika."));
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void shouldReturnConflictForAlreadyFulfilledReservation() throws Exception {
-        String email = registerReader();
-        String accessToken = loginAndExtractToken(email, "superhaslo");
+        String readerEmail = registerReader();
+        String readerToken = loginAndExtractToken(readerEmail, "superhaslo");
+        String librarianToken = loginAndExtractToken(registerLibrarian(), "superhaslo");
         Book book = createBook("Continuous Delivery", 2, 2);
-        Long reservationId = createReservation(accessToken, book.getId());
+        Long reservationId = createReservation(readerToken, book.getId());
 
-        borrowBook(accessToken, reservationId);
+        borrowBook(librarianToken, reservationId);
 
         mockMvc.perform(post("/api/borrows")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + librarianToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toBorrowJson(reservationId)))
                 .andExpect(status().isConflict())
@@ -174,18 +180,19 @@ class BorrowControllerIntegrationTest {
 
     @Test
     void shouldReturnConflictForAlreadyReturnedBorrow() throws Exception {
-        String email = registerReader();
-        String accessToken = loginAndExtractToken(email, "superhaslo");
+        String readerEmail = registerReader();
+        String readerToken = loginAndExtractToken(readerEmail, "superhaslo");
+        String librarianToken = loginAndExtractToken(registerLibrarian(), "superhaslo");
         Book book = createBook("Refactoring UI", 2, 2);
-        Long reservationId = createReservation(accessToken, book.getId());
-        Long borrowId = borrowBook(accessToken, reservationId);
+        Long reservationId = createReservation(readerToken, book.getId());
+        Long borrowId = borrowBook(librarianToken, reservationId);
 
         mockMvc.perform(post("/api/borrows/%d/return".formatted(borrowId))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + readerToken))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/borrows/%d/return".formatted(borrowId))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + readerToken))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Nie można zwrócić wypożyczenia o statusie: RETURNED"))
                 .andExpect(jsonPath("$.fieldErrors").isMap());
@@ -193,29 +200,30 @@ class BorrowControllerIntegrationTest {
 
     @Test
     void shouldReturnCurrentUsersBorrowHistory() throws Exception {
-        String email = registerReader();
-        String accessToken = loginAndExtractToken(email, "superhaslo");
-        String secondEmail = registerReader();
-        String secondToken = loginAndExtractToken(secondEmail, "superhaslo");
+        String readerEmail = registerReader();
+        String readerToken = loginAndExtractToken(readerEmail, "superhaslo");
+        String secondReaderEmail = registerReader();
+        String secondReaderToken = loginAndExtractToken(secondReaderEmail, "superhaslo");
+        String librarianToken = loginAndExtractToken(registerLibrarian(), "superhaslo");
 
         Book returnedBook = createBook("Clean Architecture", 3, 3);
         Book activeBook = createBook("Test Driven Development", 2, 2);
         Book otherUsersBook = createBook("Working Effectively with Legacy Code", 1, 1);
 
-        Long returnedReservationId = createReservation(accessToken, returnedBook.getId());
-        Long returnedBorrowId = borrowBook(accessToken, returnedReservationId);
+        Long returnedReservationId = createReservation(readerToken, returnedBook.getId());
+        Long returnedBorrowId = borrowBook(librarianToken, returnedReservationId);
         mockMvc.perform(post("/api/borrows/%d/return".formatted(returnedBorrowId))
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + readerToken))
                 .andExpect(status().isOk());
 
-        Long activeReservationId = createReservation(accessToken, activeBook.getId());
-        borrowBook(accessToken, activeReservationId);
+        Long activeReservationId = createReservation(readerToken, activeBook.getId());
+        borrowBook(librarianToken, activeReservationId);
 
-        Long otherReservationId = createReservation(secondToken, otherUsersBook.getId());
-        borrowBook(secondToken, otherReservationId);
+        Long otherReservationId = createReservation(secondReaderToken, otherUsersBook.getId());
+        borrowBook(librarianToken, otherReservationId);
 
         mockMvc.perform(get("/api/borrows/history")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + readerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].bookTitle").value("Test Driven Development"))
@@ -238,6 +246,24 @@ class BorrowControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(request)))
                 .andExpect(status().isCreated());
+
+        createdEmails.add(email);
+        return email;
+    }
+
+    private String registerLibrarian() throws Exception {
+        String email = uniqueEmail();
+        RegistrationRequest request = new RegistrationRequest("Anna", "Bibliotekarz", email, "superhaslo");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(request)))
+                .andExpect(status().isCreated());
+
+        Role librarianRole = roleRepository.findByName("LIBRARIAN").orElseThrow();
+        User user = userRepository.findByEmail(email).orElseThrow();
+        user.setRole(librarianRole);
+        userRepository.saveAndFlush(user);
 
         createdEmails.add(email);
         return email;
@@ -274,9 +300,9 @@ class BorrowControllerIntegrationTest {
         return Long.parseLong(matcher.group(1));
     }
 
-    private Long borrowBook(String accessToken, Long reservationId) throws Exception {
+    private Long borrowBook(String librarianToken, Long reservationId) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/borrows")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + librarianToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(toBorrowJson(reservationId)))
                 .andExpect(status().isCreated())

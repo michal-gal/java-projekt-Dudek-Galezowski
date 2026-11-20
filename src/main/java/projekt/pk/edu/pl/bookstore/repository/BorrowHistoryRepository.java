@@ -32,4 +32,14 @@ public interface BorrowHistoryRepository extends JpaRepository<BorrowHistory, Lo
             ORDER BY bh.borrowedAt DESC, bh.id DESC
             """)
     List<BorrowHistory> findAllByUserEmailOrderByBorrowedAtDesc(@Param("email") String email);
+
+    @Query("""
+            SELECT bh
+            FROM BorrowHistory bh
+            JOIN FETCH bh.user
+            JOIN FETCH bh.book
+            WHERE bh.status = :status
+            ORDER BY bh.borrowedAt ASC
+            """)
+    List<BorrowHistory> findAllByStatus(@Param("status") projekt.pk.edu.pl.bookstore.entity.BorrowStatus status);
 }

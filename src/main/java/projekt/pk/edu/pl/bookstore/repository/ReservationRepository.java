@@ -9,8 +9,23 @@ import projekt.pk.edu.pl.bookstore.entity.Reservation;
 import projekt.pk.edu.pl.bookstore.entity.ReservationStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
+
+    @Query("""
+            SELECT r FROM Reservation r JOIN FETCH r.book JOIN FETCH r.user
+            WHERE r.user.email = :email
+            ORDER BY r.reservedAt DESC
+            """)
+    List<Reservation> findAllByUserEmail(@Param("email") String email);
+
+    @Query("""
+            SELECT r FROM Reservation r JOIN FETCH r.book JOIN FETCH r.user
+            WHERE r.status = :status
+            ORDER BY r.reservedAt ASC
+            """)
+    List<Reservation> findAllByStatus(@Param("status") ReservationStatus status);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT r

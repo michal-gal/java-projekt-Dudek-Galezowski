@@ -25,7 +25,8 @@ public class BookService {
     }
 
     public Page<BookResponse> getAllBooks(String query, Pageable pageable) {
-        return bookRepository.searchBooks(query, pageable).map(this::mapToResponse);
+        String normalizedQuery = (query == null) ? "" : query;
+        return bookRepository.searchBooks(normalizedQuery, pageable).map(this::mapToResponse);
     }
 
     public BookResponse getBookById(Long id) {

@@ -8,14 +8,17 @@ import projekt.pk.edu.pl.bookstore.entity.Book;
 import projekt.pk.edu.pl.bookstore.entity.Reservation;
 import projekt.pk.edu.pl.bookstore.entity.ReservationStatus;
 import projekt.pk.edu.pl.bookstore.entity.User;
+import org.springframework.security.access.AccessDeniedException;
 import projekt.pk.edu.pl.bookstore.exception.ActiveReservationExistsException;
 import projekt.pk.edu.pl.bookstore.exception.BookUnavailableException;
+import projekt.pk.edu.pl.bookstore.exception.BusinessConflictException;
 import projekt.pk.edu.pl.bookstore.exception.ResourceNotFoundException;
 import projekt.pk.edu.pl.bookstore.repository.BookRepository;
 import projekt.pk.edu.pl.bookstore.repository.ReservationRepository;
 import projekt.pk.edu.pl.bookstore.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 
 @Service
@@ -35,6 +38,42 @@ public class ReservationService {
         this.reservationRepository = reservationRepository;
         this.userRepository = userRepository;
         this.bookRepository = bookRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReservationResponse> getMyReservations(String email) {
+        return reservationRepository.findAllByUserEmail(normalizeEmail(email))
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReservationResponse> getAllActiveReservations() {
+        return reservationRepository.findAllByStatus(ReservationStatus.ACTIVE)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Transactional
+    public void cancelReservation(Long id, String email) {
+        String normalizedEmail = normalizeEmail(email);
+        Reservation reservation = reservationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Nie znaleziono rezerwacji o ID: " + id));
+
+        if (!reservation.getUser().getEmail().equalsIgnoreCase(normalizedEmail)) {
+            throw new AccessDeniedException("Rezerwacja nie należy do bieżącego użytkownika.");
+        }
+        if (reservation.getStatus() != ReservationStatus.ACTIVE) {
+            throw new BusinessConflictException("Nie można anulować rezerwacji o statusie: " + reservation.getStatus());
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        reservation.setStatus(ReservationStatus.CANCELLED);
+        reservation.setCancelledAt(now);
+        reservation.setUpdatedAt(now);
+        reservationRepository.save(reservation);
     }
 
     @Transactional
@@ -71,6 +110,7 @@ public class ReservationService {
         return new ReservationResponse(
                 reservation.getId(),
                 reservation.getUser().getId(),
+                reservation.getUser().getEmail(),
                 reservation.getBook().getId(),
                 reservation.getBook().getTitle(),
                 reservation.getStatus().name(),
